@@ -58,5 +58,5 @@ supabase/.temp/
 .stylelintcache
 *.tsbuildinfo
 
-# workspace
+# workspace 
 cache/
