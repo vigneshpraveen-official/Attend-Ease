@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+.nyc_output/
+
+# Production
+dist/
+build/
+out/
+.next/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+*.env
+*.env.local
+
+# Server Environment
+server/node_modules/
+server/dist/
+server/coverage/
+server/.env
+server/.env.*
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor directories
+.vscode/
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Supabase
+supabase/functions/*/deno.lock
+supabase/.temp/
+
+# Misc
+.cache/
+.parcel-cache
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
