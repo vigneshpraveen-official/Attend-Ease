@@ -36,7 +36,10 @@ export default function LeaveRequests() {
 
   const fetchLeaves = async () => {
     let query = supabase.from("leaves").select("*").order("created_at", { ascending: false });
-    if (filter !== "all") query = query.eq("status", filter as "Pending" | "Approved" | "Rejected");
+    
+    // DB stores lowercase, so filter with lowercase
+    if (filter !== "all") query = query.eq("status", filter.toLowerCase());
+    
     const { data: leaves } = await query;
 
     if (!leaves?.length) {
@@ -57,8 +60,8 @@ export default function LeaveRequests() {
 
   const handleAction = async () => {
     if (!selected || !action) return;
-    await supabase.from("leaves").update({ status: action, admin_remarks: remarks || null }).eq("id", selected.id);
-    toast({ title: `Leave ${action.toLowerCase()}`, description: `${selected.employee_name}'s leave has been ${action.toLowerCase()}.` });
+    await supabase.from("leaves").update({ status: action.toLowerCase(), admin_remarks: remarks || null }).eq("id", selected.id);
+    toast({ title: `Leave ${action}`, description: `${selected.employee_name}'s leave has been ${action.toLowerCase()}.` });
     setSelected(null);
     setRemarks("");
     setAction(null);
@@ -66,8 +69,9 @@ export default function LeaveRequests() {
   };
 
   const statusColor = (s: string) => {
-    if (s === "Approved") return "bg-success/10 text-success border-success/20";
-    if (s === "Rejected") return "bg-destructive/10 text-destructive border-destructive/20";
+    const status = s?.toLowerCase();
+    if (status === "approved") return "bg-success/10 text-success border-success/20";
+    if (status === "rejected") return "bg-destructive/10 text-destructive border-destructive/20";
     return "bg-warning/10 text-warning border-warning/20";
   };
 
@@ -125,7 +129,7 @@ export default function LeaveRequests() {
                       <Badge variant="outline" className={statusColor(r.status)}>{r.status}</Badge>
                     </TableCell>
                     <TableCell>
-                      {r.status === "Pending" && (
+                      {r.status?.toLowerCase() === "pending" && (
                         <div className="flex gap-1">
                           <Button size="sm" variant="ghost" className="text-success hover:text-green-700 hover:bg-green-50" onClick={() => { setSelected(r); setAction("Approved"); }}>
                             <CheckCircle className="h-4 w-4" />

@@ -2,13 +2,21 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, UserCheck, CalendarOff, FileText } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Stats {
   totalEmployees: number;
   presentToday: number;
   onLeaveToday: number;
   pendingLeaves: number;
+}
+
+interface ChartData {
+  date: string;
+  present: number;
+  absent: number;
+  leave: number;
 }
 
 export default function AdminDashboard() {
@@ -18,7 +26,8 @@ export default function AdminDashboard() {
     onLeaveToday: 0,
     pendingLeaves: 0,
   });
-  const [weeklyData, setWeeklyData] = useState<{ day: string; present: number }[]>([]);
+  const [chartData, setChartData] = useState<ChartData[]>([]);
+  const [range, setRange] = useState<"week" | "month">("week");
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -27,8 +36,8 @@ export default function AdminDashboard() {
       const [employees, attendance, leaves, pendingLeaves] = await Promise.all([
         supabase.from("employees").select("id", { count: "exact", head: true }),
         supabase.from("attendance").select("id", { count: "exact", head: true }).eq("date", today).eq("status", "present"),
-        supabase.from("leaves").select("id", { count: "exact", head: true }).eq("status", "Approved").lte("start_date", today).gte("end_date", today),
-        supabase.from("leaves").select("id", { count: "exact", head: true }).eq("status", "Pending"),
+        supabase.from("leaves").select("id", { count: "exact", head: true }).eq("status", "approved").lte("start_date", today).gte("end_date", today),
+        supabase.from("leaves").select("id", { count: "exact", head: true }).eq("status", "pending"),
       ]);
 
       setStats({
@@ -39,37 +48,73 @@ export default function AdminDashboard() {
       });
     };
 
-    const fetchWeekly = async () => {
-      const days = [];
-      for (let i = 6; i >= 0; i--) {
+    fetchStats();
+  }, []);
+
+  useEffect(() => {
+    const fetchChart = async () => {
+      const daysCount = range === "week" ? 7 : 30;
+      const days: string[] = [];
+      const today = new Date();
+      
+      for (let i = daysCount - 1; i >= 0; i--) {
         const d = new Date();
-        d.setDate(d.getDate() - i);
+        d.setDate(today.getDate() - i);
         days.push(d.toISOString().split("T")[0]);
       }
 
-      const { data } = await supabase
+      // Fetch Attendance
+      const { data: attendance } = await supabase
         .from("attendance")
         .select("date, status")
-        .in("date", days)
-        .eq("status", "present");
+        .in("date", days);
 
-      const counts: Record<string, number> = {};
-      days.forEach((d) => (counts[d] = 0));
-      data?.forEach((r) => {
-        counts[r.date] = (counts[r.date] || 0) + 1;
+      // Fetch Leaves
+      const { data: leaves } = await supabase
+        .from("leaves")
+        .select("start_date, end_date")
+        .eq("status", "approved")
+        .or(`start_date.lte.${days[days.length-1]},end_date.gte.${days[0]}`);
+
+      // Process Data
+      const { count: totalEmployees } = await supabase.from("employees").select("id", { count: "exact", head: true });
+      const total = totalEmployees ?? 0;
+
+      const dataMap: Record<string, { present: number; absent: number; leave: number }> = {};
+      days.forEach(d => dataMap[d] = { present: 0, absent: 0, leave: 0 });
+
+      attendance?.forEach(r => {
+        if (dataMap[r.date]) {
+            const s = r.status?.toLowerCase();
+            if (s === "present" || s === "late" || s === "half-day") dataMap[r.date].present++;
+            // Explicit absent records are rare if we calculate implied, but keep counting them if they exist
+            // Actually, if we calculate implied, we shouldn't double count. 
+            // Strategy: Count explicit present/leave. Derive absent.
+        }
       });
 
-      setWeeklyData(
-        days.map((d) => ({
-          day: new Date(d).toLocaleDateString("en", { weekday: "short" }),
-          present: counts[d],
-        }))
-      );
+      days.forEach(day => {
+          leaves?.forEach(l => {
+              if (day >= l.start_date && day <= l.end_date) {
+                  dataMap[day].leave++;
+              }
+          });
+          
+          // Calculate Absent
+          const presentOrLeave = dataMap[day].present + dataMap[day].leave;
+          // Absent is remainder. Ensure non-negative.
+          // Note: This assumes total employees is constant.
+          dataMap[day].absent = Math.max(0, total - presentOrLeave);
+      });
+
+      setChartData(days.map(date => ({
+          date: new Date(date).toLocaleDateString("en", { day: "numeric", month: "short" }),
+          ...dataMap[date]
+      })));
     };
 
-    fetchStats();
-    fetchWeekly();
-  }, []);
+    fetchChart();
+  }, [range]);
 
   const cards = [
     { title: "Total Employees", value: stats.totalEmployees, icon: Users, color: "text-primary" },
@@ -97,18 +142,30 @@ export default function AdminDashboard() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Weekly Attendance</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-lg">Attendance Overview</CardTitle>
+          <Select value={range} onValueChange={(v: any) => setRange(v)}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="week">Weekly</SelectItem>
+              <SelectItem value="month">Monthly</SelectItem>
+            </SelectContent>
+          </Select>
         </CardHeader>
         <CardContent>
-          <div className="h-64">
+          <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklyData}>
+              <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="day" className="text-xs" />
+                <XAxis dataKey="date" className="text-xs" />
                 <YAxis className="text-xs" />
                 <Tooltip />
-                <Bar dataKey="present" fill="hsl(220, 70%, 50%)" radius={[4, 4, 0, 0]} />
+                <Legend />
+                <Bar dataKey="present" name="Present" fill="#22c55e" stackId="a" radius={[0, 0, 4, 4]} />
+                <Bar dataKey="absent" name="Absent" fill="#ef4444" stackId="a" />
+                <Bar dataKey="leave" name="On Leave" fill="#f59e0b" stackId="a" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
