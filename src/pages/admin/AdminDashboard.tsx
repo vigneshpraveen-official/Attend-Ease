@@ -26,8 +26,8 @@ export default function AdminDashboard() {
 
       const [employees, attendance, leaves, pendingLeaves] = await Promise.all([
         supabase.from("employees").select("id", { count: "exact", head: true }),
-        supabase.from("attendance").select("id", { count: "exact", head: true }).eq("date", today).eq("status", "Present"),
-        supabase.from("leaves").select("id", { count: "exact", head: true }).eq("status", "Approved").lte("from_date", today).gte("to_date", today),
+        supabase.from("attendance").select("id", { count: "exact", head: true }).eq("date", today).eq("status", "present"),
+        supabase.from("leaves").select("id", { count: "exact", head: true }).eq("status", "Approved").lte("start_date", today).gte("end_date", today),
         supabase.from("leaves").select("id", { count: "exact", head: true }).eq("status", "Pending"),
       ]);
 
@@ -51,7 +51,7 @@ export default function AdminDashboard() {
         .from("attendance")
         .select("date, status")
         .in("date", days)
-        .eq("status", "Present");
+        .eq("status", "present");
 
       const counts: Record<string, number> = {};
       days.forEach((d) => (counts[d] = 0));

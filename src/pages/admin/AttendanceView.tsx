@@ -9,9 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 interface AttendanceRow {
   id: string;
   date: string;
-  punch_in: string | null;
-  punch_out: string | null;
-  total_hours: number | null;
+  check_in: string | null;
+  check_out: string | null;
+  // total_hours: number | null; // Not in DB, calculate on fly
   status: string;
   employee_name: string;
 }
@@ -22,24 +22,26 @@ export default function AttendanceView() {
 
   useEffect(() => {
     const fetch = async () => {
+      // Fetch attendance for the date
       const { data: attendance } = await supabase
         .from("attendance")
         .select("*")
         .eq("date", date)
-        .order("punch_in", { ascending: true });
+        .order("check_in", { ascending: true });
 
       if (!attendance?.length) {
         setRows([]);
         return;
       }
 
+      // Fetch employee names
       const employeeIds = [...new Set(attendance.map((a) => a.employee_id))];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, full_name")
-        .in("user_id", employeeIds);
+      const { data: employees } = await supabase
+        .from("employees")
+        .select("id, first_name, last_name")
+        .in("id", employeeIds);
 
-      const nameMap = Object.fromEntries((profiles ?? []).map((p) => [p.user_id, p.full_name]));
+      const nameMap = Object.fromEntries((employees ?? []).map((e) => [e.id, `${e.first_name} ${e.last_name}`]));
 
       setRows(
         attendance.map((a) => ({
@@ -52,9 +54,16 @@ export default function AttendanceView() {
   }, [date]);
 
   const statusColor = (s: string) => {
-    if (s === "Present") return "bg-success/10 text-success border-success/20";
-    if (s === "Absent") return "bg-destructive/10 text-destructive border-destructive/20";
+    const status = s?.toLowerCase();
+    if (status === "present") return "bg-success/10 text-success border-success/20";
+    if (status === "absent") return "bg-destructive/10 text-destructive border-destructive/20";
     return "bg-warning/10 text-warning border-warning/20";
+  };
+
+  const calculateHours = (inTime: string | null, outTime: string | null) => {
+      if (!inTime || !outTime) return "—";
+      const hours = Math.round(((new Date(outTime).getTime() - new Date(inTime).getTime()) / 3600000) * 100) / 100;
+      return `${hours}h`;
   };
 
   return (
@@ -89,9 +98,9 @@ export default function AttendanceView() {
                 rows.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.employee_name}</TableCell>
-                    <TableCell>{r.punch_in ? new Date(r.punch_in).toLocaleTimeString() : "—"}</TableCell>
-                    <TableCell>{r.punch_out ? new Date(r.punch_out).toLocaleTimeString() : "—"}</TableCell>
-                    <TableCell>{r.total_hours ? `${r.total_hours}h` : "—"}</TableCell>
+                    <TableCell>{r.check_in ? new Date(r.check_in).toLocaleTimeString() : "—"}</TableCell>
+                    <TableCell>{r.check_out ? new Date(r.check_out).toLocaleTimeString() : "—"}</TableCell>
+                    <TableCell>{calculateHours(r.check_in, r.check_out)}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={statusColor(r.status)}>{r.status}</Badge>
                     </TableCell>

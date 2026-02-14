@@ -3,7 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -14,10 +13,12 @@ import { CheckCircle, XCircle } from "lucide-react";
 
 interface LeaveRow {
   id: string;
-  type: string;
+  leave_type: string;
   reason: string;
-  from_date: string;
-  to_date: string;
+  start_date: string;
+  end_date: string;
+  start_time: string | null;
+  end_time: string | null;
   status: string;
   admin_remarks: string | null;
   employee_id: string;
@@ -44,8 +45,8 @@ export default function LeaveRequests() {
     }
 
     const ids = [...new Set(leaves.map((l) => l.employee_id))];
-    const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", ids);
-    const nameMap = Object.fromEntries((profiles ?? []).map((p) => [p.user_id, p.full_name]));
+    const { data: employees } = await supabase.from("employees").select("id, first_name, last_name").in("id", ids);
+    const nameMap = Object.fromEntries((employees ?? []).map((e) => [e.id, `${e.first_name} ${e.last_name}`]));
 
     setRows(leaves.map((l) => ({ ...l, employee_name: nameMap[l.employee_id] || "Unknown" })));
   };
@@ -113,9 +114,12 @@ export default function LeaveRequests() {
                 rows.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.employee_name}</TableCell>
-                    <TableCell>{r.type}</TableCell>
-                    <TableCell>{new Date(r.from_date).toLocaleDateString()}</TableCell>
-                    <TableCell>{new Date(r.to_date).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                        {r.leave_type}
+                        {r.start_time && <div className="text-xs text-muted-foreground">{r.start_time} - {r.end_time}</div>}
+                    </TableCell>
+                    <TableCell>{new Date(r.start_date).toLocaleDateString()}</TableCell>
+                    <TableCell>{new Date(r.end_date).toLocaleDateString()}</TableCell>
                     <TableCell className="max-w-[200px] truncate">{r.reason}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={statusColor(r.status)}>{r.status}</Badge>
@@ -123,10 +127,10 @@ export default function LeaveRequests() {
                     <TableCell>
                       {r.status === "Pending" && (
                         <div className="flex gap-1">
-                          <Button size="sm" variant="ghost" className="text-success" onClick={() => { setSelected(r); setAction("Approved"); }}>
+                          <Button size="sm" variant="ghost" className="text-success hover:text-green-700 hover:bg-green-50" onClick={() => { setSelected(r); setAction("Approved"); }}>
                             <CheckCircle className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { setSelected(r); setAction("Rejected"); }}>
+                          <Button size="sm" variant="ghost" className="text-destructive hover:text-red-700 hover:bg-red-50" onClick={() => { setSelected(r); setAction("Rejected"); }}>
                             <XCircle className="h-4 w-4" />
                           </Button>
                         </div>

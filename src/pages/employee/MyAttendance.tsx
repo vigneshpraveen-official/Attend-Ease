@@ -71,17 +71,22 @@ export default function MyAttendance() {
                   <TableCell colSpan={5} className="text-center text-muted-foreground py-8">No records found</TableCell>
                 </TableRow>
               ) : (
-                records.map((r) => (
+                records.map((r) => {
+                  let hours = r.total_hours;
+                  if (!hours && r.check_in && r.check_out) {
+                      hours = Math.round(((new Date(r.check_out).getTime() - new Date(r.check_in).getTime()) / 3600000) * 100) / 100;
+                  }
+                  return (
                   <TableRow key={r.id}>
                     <TableCell>{new Date(r.date).toLocaleDateString()}</TableCell>
-                    <TableCell>{r.punch_in ? new Date(r.punch_in).toLocaleTimeString() : "—"}</TableCell>
-                    <TableCell>{r.punch_out ? new Date(r.punch_out).toLocaleTimeString() : "—"}</TableCell>
-                    <TableCell>{r.total_hours ? `${r.total_hours}h` : "—"}</TableCell>
+                    <TableCell>{r.check_in ? new Date(r.check_in).toLocaleTimeString() : "—"}</TableCell>
+                    <TableCell>{r.check_out ? new Date(r.check_out).toLocaleTimeString() : "—"}</TableCell>
+                    <TableCell>{hours ? `${hours}h` : "—"}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={statusColor(r.status)}>{r.status}</Badge>
                     </TableCell>
                   </TableRow>
-                ))
+                )})
               )}
             </TableBody>
           </Table>

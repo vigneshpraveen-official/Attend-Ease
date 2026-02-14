@@ -164,19 +164,24 @@ export default function EmployeeDashboard() {
                     <TableCell colSpan={3} className="text-center text-muted-foreground py-4">No records</TableCell>
                   </TableRow>
                 ) : (
-                  weekRecords.map((r) => (
+                  weekRecords.map((r) => {
+                    let hours = r.total_hours;
+                    if (!hours && r.check_in && r.check_out) {
+                       hours = Math.round(((new Date(r.check_out).getTime() - new Date(r.check_in).getTime()) / 3600000) * 100) / 100;
+                    }
+                    return (
                     <TableRow key={r.id}>
                       <TableCell>{new Date(r.date).toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" })}</TableCell>
-                      <TableCell>{r.total_hours ? `${r.total_hours}h` : "—"}</TableCell>
+                      <TableCell>{hours ? `${hours}h` : "—"}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={
-                          r.status === "Present" ? "bg-success/10 text-success border-success/20" :
-                          r.status === "Absent" ? "bg-destructive/10 text-destructive border-destructive/20" :
+                          r.status === "Present" || r.status === "present" ? "bg-success/10 text-success border-success/20" :
+                          r.status === "Absent" || r.status === "absent" ? "bg-destructive/10 text-destructive border-destructive/20" :
                           "bg-warning/10 text-warning border-warning/20"
                         }>{r.status}</Badge>
                       </TableCell>
                     </TableRow>
-                  ))
+                  )})
                 )}
               </TableBody>
             </Table>

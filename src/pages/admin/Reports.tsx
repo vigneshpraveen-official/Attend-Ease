@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 
-const COLORS = ["hsl(160, 60%, 45%)", "hsl(0, 72%, 51%)", "hsl(38, 92%, 50%)"];
+const COLORS = ["#22c55e", "#ef4444", "#f59e0b"]; // Green, Red, Orange
 
 export default function Reports() {
   const [deptData, setDeptData] = useState<{ department: string; count: number }[]>([]);
@@ -11,10 +11,10 @@ export default function Reports() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: profiles } = await supabase.from("profiles").select("department");
+      const { data: employees } = await supabase.from("employees").select("department");
       const deptCounts: Record<string, number> = {};
-      profiles?.forEach((p) => {
-        const dept = p.department || "Unassigned";
+      employees?.forEach((e) => {
+        const dept = e.department || "Unassigned";
         deptCounts[dept] = (deptCounts[dept] || 0) + 1;
       });
       setDeptData(Object.entries(deptCounts).map(([department, count]) => ({ department, count })));
@@ -30,7 +30,13 @@ export default function Reports() {
 
       const sCounts: Record<string, number> = { Present: 0, Absent: 0, "Half Day": 0 };
       attendance?.forEach((a) => {
-        sCounts[a.status] = (sCounts[a.status] || 0) + 1;
+        // Normalize status
+        let status = "Present";
+        const s = a.status?.toLowerCase();
+        if (s === "absent") status = "Absent";
+        if (s === "half-day" || s === "half day") status = "Half Day";
+        
+        sCounts[status] = (sCounts[status] || 0) + 1;
       });
       setStatusData(Object.entries(sCounts).map(([name, value]) => ({ name, value })));
     };
